@@ -10,26 +10,13 @@ function [mod_elast, ult_stress, frac_stress] = analyze(xlsfile)
 
     poly_data = xlsread(xlsfile);
 
-    % Elongation curve. Load vs. position
+    % Load and position
     position = poly_data(7:end, 3) ./ 1000; % units m
     load = poly_data(7:end, 2); % units N
-    figure()
-
-    subplot(2, 1, 1)
-    plot(position, load)
-    title('Load vs. Position')
-    xlabel('Position (m)')
-    ylabel('Load (N)')
-
-    % Stress strain. Stress vs. strain
+    
+    % Stress and strain
     stress = (load / cross_sectional_area) / 10^6; % units MPa
     strain = position / gauge_length;
-    
-    subplot(2, 1, 2)
-    plot(strain, stress, 'linewidth', 1)
-    title('Stress vs. Strain')
-    xlabel('Strain')
-    ylabel('Stress(MPa)')
 
     % Modulus of elasticity
     % Slope of the linear (elastic) portion of the graph
@@ -42,10 +29,51 @@ function [mod_elast, ult_stress, frac_stress] = analyze(xlsfile)
 
     % Ultimate stress
     % Maximum value of stress in the graph
-    [ult_stress, ~] = max(stress);
+    [ult_stress, ult_ind] = max(stress);
 
-    % TODO: fracture stress
+    % Fracture stress
     % Final value of stress before the material breaks
-    frac_stress = 0;
+    
+    frac_ind = 0;
+    start_ind = floor(length(stress) * 0.80); % Start ~80% away from 0 strain
+    
+    for i=start_ind:(length(stress)-10) % Span from ~80% away to length-10
+        rise = stress(i + 10) - stress(i);
+        run = strain(i + 10) - strain(i);
+        
+        slope = rise / run;
+        angle = atand(slope);
+        
+        if (angle < -87) % If angle is close to 90
+            frac_ind = i;
+        end
+    end
+    
+    frac_stress = stress(frac_ind);
+     
+    % Plotting
+    figure()
+    
+    % Load vs. position
+    subplot(2, 1, 1)
+    plot(position, load)
+    title('Load vs. Position')
+    xlabel('Position (m)')
+    ylabel('Load (N)')
+    
+    % Stress vs. strain
+    subplot(2, 1, 2)
+    plot(strain, stress, 'linewidth', 1)
+    title('Stress vs. Strain')
+    xlabel('Strain')
+    ylabel('Stress(MPa)')
+    
+    hold on
+    
+    plot(strain(ult_ind), ult_stress, '*')
+    plot(strain(frac_ind), frac_stress, '*')
+    legend('Stress strain', 'Ultimate stress', 'Fracture stress', 'Location', 'southwest')
+    
+    hold off
 
 end
